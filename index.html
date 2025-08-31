@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dual WhatsApp - Encrypted Messaging Demo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f23;
+            color: #ffffff;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .dual-container {
+            display: flex;
+            height: 100vh;
+            gap: 1px;
+        }
+
+        .user-interface {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #111b21;
+            position: relative;
+            min-width: 0;
+        }
+
+        .user-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 12px 15px;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            border-bottom: 2px solid #2a3942;
+        }
+
+        .chat-header {
+            background: #202c33;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #2a3942;
+            min-height: 60px;
+        }
+
+        .chat-user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00a884, #06cf9c);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .user-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-details h3 {
+            font-size: 14px;
+            font-weight: 400;
+            margin-bottom: 2px;
+            color: #e9edef;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-status {
+            font-size: 11px;
+            color: #8696a0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .online-dot {
+            width: 6px;
+            height: 6px;
+            background: #00a884;
+            border-radius: 50%;
+        }
+
+        .encryption-status {
+            background: #0f4c3a;
+            color: #4ade80;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px 10px;
+            background: #0b141a;
+            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="chat-bg" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="%23ffffff" opacity="0.03"/></pattern></defs><rect width="100" height="100" fill="url(%23chat-bg)"/></svg>');
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 10px 12px;
+            border-radius: 12px;
+            position: relative;
+            animation: messageSlide 0.4s ease-out;
+            word-wrap: break-word;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(15px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #005c4b, #00a884);
+            color: white;
+        }
+
+        .message.received {
+            align-self: flex-start;
+            background: #202c33;
+            color: #e9edef;
+        }
+
+        .message-time {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 4px;
+            text-align: right;
+        }
+
+        .message-input-container {
+            background: #202c33;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-top: 1px solid #2a3942;
+        }
+
+        .message-input {
+            flex: 1;
+            background: #2a3942;
+            border: none;
+            border-radius: 20px;
+            padding: 10px 15px;
+            color: #e9edef;
+            font-size: 14px;
+            outline: none;
+            resize: none;
+            max-height: 100px;
+            min-height: 40px;
+        }
+
+        .message-input::placeholder {
+            color: #8696a0;
+        }
+
+        .send-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00a884, #06cf9c);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+        }
+
+        .send-button:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, #005c4b, #00a884);
+        }
+
+        .encryption-process {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .encryption-process.show {
+            display: flex;
+        }
+
+        .encryption-box {
+            background: #1a1a2e;
+            border: 2px solid #00a884;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0, 168, 132, 0.3);
+        }
+
+        .encryption-title {
+            font-size: 1.2rem;
+            color: #4ade80;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .encryption-step {
+            margin: 15px 0;
+            padding: 12px;
+            background: #0f1419;
+            border-radius: 8px;
+            border-left: 4px solid #00a884;
+            opacity: 0.3;
+            transition: all 0.5s ease;
+        }
+
+        .encryption-step.active {
+            opacity: 1;
+            background: #0f4c3a;
+            transform: scale(1.02);
+        }
+
+        .encryption-step.completed {
+            opacity: 0.7;
+            background: #0a3d2e;
+        }
+
+        .step-icon {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .step-text {
+            font-size: 0.9rem;
+            color: #e9edef;
+        }
+
+        .message-preview {
+            background: #2a3942;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+            color: #8696a0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #2a3942;
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00a884, #06cf9c);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .encryption-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #4ade80;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .encryption-indicator.show {
+            opacity: 1;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .dual-container {
+                flex-direction: column;
+                gap: 1px;
+            }
+
+            .user-interface {
+                height: 50vh;
+            }
+
+            .user-header {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+            }
+
+            .chat-header {
+                padding: 8px 12px;
+                min-height: 50px;
+            }
+
+            .user-avatar {
+                width: 30px;
+                height: 30px;
+                font-size: 0.9rem;
+            }
+
+            .user-details h3 {
+                font-size: 13px;
+            }
+
+            .user-status {
+                font-size: 10px;
+            }
+
+            .encryption-status {
+                padding: 3px 6px;
+                font-size: 0.6rem;
+            }
+
+            .messages-container {
+                padding: 10px 8px;
+            }
+
+            .message {
+                max-width: 90%;
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+
+            .message-input-container {
+                padding: 8px 12px;
+            }
+
+            .message-input {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+
+            .send-button {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .user-interface {
+                height: 50vh;
+            }
+
+            .message {
+                max-width: 95%;
+                font-size: 12px;
+            }
+
+            .encryption-status {
+                display: none;
+            }
+        }
+
+        /* Touch improvements */
+        .message-input:focus {
+            background: #3a4a52;
+        }
+
+        .send-button:hover {
+            background: linear-gradient(135deg, #06cf9c, #00a884);
+        }
+
+        /* Scrollbar styling for webkit browsers */
+        .messages-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .messages-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb {
+            background: #2a3942;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dual-container">
+        <!-- User 1 Interface -->
+        <div class="user-interface" id="user1">
+            <div class="user-header">
+                👤 Het - Secure Chat
+            </div>
+            
+            <div class="chat-header">
+                <div class="chat-user-info">
+                    <div class="user-avatar">B</div>
+                    <div class="user-details">
+                        <h3>Bob</h3>
+                        <div class="user-status">
+                            <div class="online-dot"></div>
+                            Online
+                        </div>
+                    </div>
+                </div>
+                <div class="encryption-status">
+                    🔒 E2E
+                </div>
+            </div>
+
+            <div class="messages-container" id="messages1">
+                <div class="message received">
+                    <div>Hey het! How's the new encryption working?</div>
+                    <div class="message-time">2:30 PM</div>
+                </div>
+                <div class="message sent">
+                    <div>It's amazing! Our messages are completely secure now 🔐</div>
+                    <div class="message-time">2:31 PM</div>
+                </div>
+            </div>
+
+            <div class="message-input-container">
+                <textarea class="message-input" id="input1" placeholder="Type a message..." rows="1"></textarea>
+                <button class="send-button" onclick="sendMessage(1)">➤</button>
+            </div>
+        </div>
+
+        <!-- User 2 Interface -->
+        <div class="user-interface" id="user2">
+            <div class="user-header">
+                👤 Bob - Secure Chat
+            </div>
+            
+            <div class="chat-header">
+                <div class="chat-user-info">
+                    <div class="user-avatar">B</div>
+                    <div class="user-details">
+                        <h3>het </h3>
+                        <div class="user-status">
+                            <div class="online-dot"></div>
+                            Online
+                        </div>
+                    </div>
+                </div>
+                <div class="encryption-status">
+                    🔒 E2E
+                </div>
+            </div>
+
+            <div class="messages-container" id="messages2">
+                <div class="message sent">
+                    <div>Hey Bhavya! How's the new encryption working?</div>
+                    <div class="message-time">2:30 PM</div>
+                </div>
+                <div class="message received">
+                    <div>It's amazing! Our messages are completely secure now 🔐</div>
+                    <div class="message-time">2:31 PM</div>
+                </div>
+            </div>
+
+            <div class="message-input-container">
+                <textarea class="message-input" id="input2" placeholder="Type a message..." rows="1"></textarea>
+                <button class="send-button" onclick="sendMessage(2)">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="encryption-indicator" id="encryptionIndicator">
+        🔒 Message Encrypted
+    </div>
+
+    <div class="encryption-process" id="encryptionProcess">
+        <div class="encryption-box">
+            <div class="encryption-title" id="processTitle">🔒 Encrypting Message</div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="encryption-step" id="step1">
+                <div class="step-icon">📝</div>
+                <div class="step-text">Preparing message</div>
+            </div>
+
+            <div class="message-preview" id="messagePreview">
+                Original: "Hello World!"
+            </div>
+
+            <div class="encryption-step" id="step2">
+                <div class="step-icon">🔑</div>
+                <div class="step-text">Generating encryption key</div>
+            </div>
+
+            <div class="encryption-step" id="step3">
+                <div class="step-icon">🔐</div>
+                <div class="step-text">Applying AES-256 encryption</div>
+            </div>
+
+            <div class="message-preview" id="encryptedPreview">
+                Encrypted: U2FsdGVkX1+vupppZksvRf5pq5g5XjFRIipRkwB0K1Y=
+            </div>
+
+            <div class="encryption-step" id="step4">
+                <div class="step-icon">📡</div>
+                <div class="step-text">Transmitting securely</div>
+            </div>
+
+            <div class="encryption-step" id="step5">
+                <div class="step-icon">🔓</div>
+                <div class="step-text">Decrypting on receiver</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Encryption key (in real app, this would be securely generated and exchanged)
+        const encryptionKey = 'demo-secret-key-2024';
+        
+        // Auto-resize textarea
+        document.querySelectorAll('.message-input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+            });
+
+            // Send on Enter (but allow Shift+Enter for new lines)
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const userId = this.id === 'input1' ? 1 : 2;
+                    sendMessage(userId);
+                }
+            });
+        });
+
+        function encryptMessage(message) {
+            try {
+                return CryptoJS.AES.encrypt(message, encryptionKey).toString();
+            } catch (error) {
+                return message; // Fallback to plain text if encryption fails
+            }
+        }
+
+        function decryptMessage(encryptedMessage) {
+            try {
+                const bytes = CryptoJS.AES.decrypt(encryptedMessage, encryptionKey);
+                return bytes.toString(CryptoJS.enc.Utf8);
+            } catch (error) {
+                return encryptedMessage; // Fallback to original if decryption fails
+            }
+        }
+
+        function showEncryptionProcess(message, encryptedMessage, callback) {
+            const process = document.getElementById('encryptionProcess');
+            const progressFill = document.getElementById('progressFill');
+            const messagePreview = document.getElementById('messagePreview');
+            const encryptedPreview = document.getElementById('encryptedPreview');
+            const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
+            
+            // Show the process overlay
+            process.classList.add('show');
+            
+            // Update message previews
+            messagePreview.textContent = `Original: "${message}"`;
+            encryptedPreview.textContent = `Encrypted: ${encryptedMessage.substring(0, 40)}...`;
+            
+            // Reset all steps
+            steps.forEach(stepId => {
+                const step = document.getElementById(stepId);
+                step.classList.remove('active', 'completed');
+            });
+            
+            let currentStep = 0;
+            const stepDuration = 800;
+            
+            function animateStep() {
+                if (currentStep > 0) {
+                    document.getElementById(steps[currentStep - 1]).classList.remove('active');
+                    document.getElementById(steps[currentStep - 1]).classList.add('completed');
+                }
+                
+                if (currentStep < steps.length) {
+                    document.getElementById(steps[currentStep]).classList.add('active');
+                    progressFill.style.width = `${((currentStep + 1) / steps.length) * 100}%`;
+                    
+                    currentStep++;
+                    setTimeout(animateStep, stepDuration);
+                } else {
+                    // Animation complete
+                    setTimeout(() => {
+                        process.classList.remove('show');
+                        callback();
+                    }, 500);
+                }
+            }
+            
+            // Start animation
+            progressFill.style.width = '0%';
+            setTimeout(animateStep, 300);
+        }
+
+        function showEncryptionIndicator() {
+            const indicator = document.getElementById('encryptionIndicator');
+            indicator.classList.add('show');
+            setTimeout(() => {
+                indicator.classList.remove('show');
+            }, 1500);
+        }
+
+        function getCurrentTime() {
+            const now = new Date();
+            return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function sendMessage(userId) {
+            const input = document.getElementById(`input${userId}`);
+            const message = input.value.trim();
+            
+            if (!message) return;
+
+            const currentTime = getCurrentTime();
+            const otherUserId = userId === 1 ? 2 : 1;
+            
+            // Clear input immediately
+            input.value = '';
+            input.style.height = 'auto';
+            
+            // Encrypt the message
+            const encryptedMessage = encryptMessage(message);
+            
+            // Show encryption process animation
+            showEncryptionProcess(message, encryptedMessage, () => {
+                // Add message to sender's chat after encryption animation
+                addMessageToChat(userId, message, 'sent', currentTime);
+                
+                // Add to receiver's chat with decryption
+                const decryptedMessage = decryptMessage(encryptedMessage);
+                addMessageToChat(otherUserId, decryptedMessage, 'received', currentTime);
+            });
+        }
+
+        function addMessageToChat(userId, message, type, time) {
+            const messagesContainer = document.getElementById(`messages${userId}`);
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `
+                <div>${message}</div>
+                <div class="message-time">${time}</div>
+            `;
+            
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Add some demo messages on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                addMessageToChat(2, "This demo shows end-to-end encryption! 🚀", 'sent', getCurrentTime());
+                setTimeout(() => {
+                    addMessageToChat(1, "This demo shows end-to-end encryption! 🚀", 'received', getCurrentTime());
+                }, 200);
+            }, 1000);
+        });
+
+        // Prevent zoom on double tap for iOS
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97690b4e423fa3b5',t:'MTc1NjQzOTAwNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
